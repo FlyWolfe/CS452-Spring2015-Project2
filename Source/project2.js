@@ -14,19 +14,31 @@ var gl;
 var program;
 
 // Vertices responsible for the shape of our model.
-var numVertices = 36;
+var numVertices = 8;
 var vertices =
     [
-        vec4(-0.45, -0.15,  0.45, 1.0),
-        vec4(-0.15,  0.45,  0.15, 1.0),
-        vec4( 0.45,  0.15,  0.45, 1.0),
-        vec4( 0.15, -0.45,  0.15, 1.0),
-        vec4(-0.45, -0.15, -0.45, 1.0),
-        vec4(-0.15,  0.45, -0.15, 1.0),
-        vec4( 0.45,  0.15, -0.45, 1.0),
-        vec4( 0.15, -0.45, -0.15, 1.0),
+        vec4( -0.1,  -0.3,  0.1, 1.0 ),
+        vec4( -0.1,  -0.1,  0.1, 1.0 ),
+        vec4(  0.1,  -0.1,  0.1, 1.0 ),
+        vec4(  0.1,  -0.3,  0.1, 1.0 ),
+        vec4( -0.1,  -0.3, -0.1, 1.0 ),
+        vec4( -0.1,  -0.1, -0.1, 1.0 ),
+        vec4(  0.1,  -0.1, -0.1, 1.0 ),
+        vec4(  0.1,  -0.3, -0.1, 1.0 ),
     ];
 
+var cubeVerts1 =
+	[
+        vec4( -0.1, -0.1,  0.1 ),
+        vec4( -0.1,  0.1,  0.1 ),
+        vec4(  0.1,  0.1,  0.1 ),
+        vec4(  0.1, -0.1,  0.1 ),
+        vec4( -0.1, -0.1, -0.1 ),
+        vec4( -0.1,  0.1, -0.1 ),
+        vec4(  0.1,  0.1, -0.1 ),
+        vec4(  0.1, -0.1, -0.1 ),
+	];
+	
 // Used for holding data after we form quads from our vertices.
 var pointsArray = [];
 var normalsArray = [];
@@ -53,6 +65,20 @@ var PMatrix;
 
 // Position of our viewer (camera).
 var viewerPos;
+
+// How much we update our x and y per loop.
+var xDelta;
+var position = [0, 0, 0];
+
+// The actual speed we're moving at.
+const speed = 0.04;
+
+// If we're updating our positions.
+var updateXPos = false;
+var resetPos = false;
+
+var restart = false;
+
 
 // To contain the rotation values of our model.
 var theta = [0, 0, 0];
@@ -133,13 +159,16 @@ window.onload = function init()
  */
 function loop()
 {
-    updateRotation();
-
+	if (updateXPos)
+		updateXPosition();
+	
+	updateRotation();
     // Update our MVMatrix.
     MVMatrix = mat4();
     MVMatrix = mult(MVMatrix, rotate(theta[0], [1, 0, 0]));
     MVMatrix = mult(MVMatrix, rotate(theta[1], [0, 1, 0]));
     MVMatrix = mult(MVMatrix, rotate(theta[2], [0, 0, 1]));
+      //MVMatrix = mult(MVMatrix, rotate(theta[1],[0, 1, 0]);
 
     gl.uniformMatrix4fv(gl.getUniformLocation(program, "MVMatrix"), false, flatten(MVMatrix));
     gl.uniform1i(gl.getUniformLocation(program, "index"), 0);
@@ -154,6 +183,24 @@ function loop()
 function render()
 {
     gl.clear(gl.COLOR_BUFFER_BIT);
+	
+	// Rebind our position for our character.
+    var nBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, nBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(normalsArray), gl.STATIC_DRAW);
+    
+    var vNormal = gl.getAttribLocation(program, "vNormal");
+    gl.vertexAttribPointer(vNormal, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vNormal);
+
+    var vBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, vBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, flatten(pointsArray), gl.STATIC_DRAW);
+    
+    var vPosition = gl.getAttribLocation(program, "vPosition");
+    gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(vPosition);
+	
     gl.drawArrays(gl.TRIANGLES, 0, numVertices);
 }
 
@@ -194,27 +241,33 @@ function formModel()
 }
 
 /*
- * Handles any event involving key presses.
+ * Handles events when a key is pressed.
  */
-function onKeyDown(event)
-{
-    switch (event.keyCode)
-    {
-        case 37: // Left arrow key.
-            rotateFlags[0] = true;
+function onKeyDown(event) {
+    var key = String.fromCharCode(event.keyCode);
+
+    switch (key) {
+        case 'W':
             break;
 
-        case 38: // Up arrow key.
-            rotateFlags[1] = true;
+        case 'S':
             break;
 
-        case 39: // Right arrow key.
-            rotateFlags[2] = true;
+        case 'A':
+		    xDelta = -speed;
+			rotateFlags[0] = true;
+            updateXPos = true;
             break;
 
-        case 40: // Down arrow key.
-            rotateFlags[3] = true;
+        case 'D':
+		    xDelta = speed;
+			rotateFlags[2] = true;
+            updateXPos = true;
             break;
+
+		case 'E':
+			restart = true;
+			break;
 
         default:
             break;
@@ -222,27 +275,28 @@ function onKeyDown(event)
 }
 
 /*
- * Handles any event involving key releases.
+ * Handles events when a key is released.
  */
-function onKeyUp(event)
-{
-    switch (event.keyCode)
-    {
-        case 37: // Left arrow key.
-            rotateFlags[0] = false;
+function onKeyUp(event) {
+    var key = String.fromCharCode(event.keyCode);
+
+    switch (key) {
+
+        // Both W and S control vertical movement.
+        case 'W':
+        case 'S':
             break;
 
-        case 38: // Up arrow key.
-            rotateFlags[1] = false;
+        // Both A and D control horizontal movement.
+        case 'A':
+        case 'D':
+		    updateXPos = false;
+			rotateFlags[0] = false;
+			rotateFlags[2] = false;
             break;
-
-        case 39: // Right arrow key.
-            rotateFlags[2] = false;
-            break;
-
-        case 40: // Down arrow key.
-            rotateFlags[3] = false;
-            break;
+		case 'E':
+			restart = false;
+			break;
 
         default:
             break;
@@ -250,8 +304,18 @@ function onKeyUp(event)
 }
 
 /*
- * Updates the rotation values of the model if the appropriate flag is true.
+ * Updates the y position of our shape by translating the vertices. Also updates
+ * the main position y-value for our character.
  */
+function updateXPosition() {
+	//if ((vertices[0][1] > -1 || yDelta > 0) && (vertices[2][1] < 1 || yDelta < 0)) {
+	/*	for (var i = 0; i < numVertices; ++i) {
+			vertices[i][0] += xDelta; // Set the vertices to an updated y-position.
+		}
+
+		position[1] += xDelta;*/
+	//}
+}
 function updateRotation()
 {
     if (rotateFlags[0]) // Left.
