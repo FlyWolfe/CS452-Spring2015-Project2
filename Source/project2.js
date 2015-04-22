@@ -17,14 +17,14 @@ var program;
 var numVertices = 36;
 var vertices =
     [
-        vec4(-0.45, -0.15,  0.45, 1.0),
-        vec4(-0.15,  0.45,  0.15, 1.0),
-        vec4( 0.45,  0.15,  0.45, 1.0),
-        vec4( 0.15, -0.45,  0.15, 1.0),
-        vec4(-0.45, -0.15, -0.45, 1.0),
-        vec4(-0.15,  0.45, -0.15, 1.0),
-        vec4( 0.45,  0.15, -0.45, 1.0),
-        vec4( 0.15, -0.45, -0.15, 1.0),
+        vec4( -0.5, -0.5,  0.5, 1.0 ),
+        vec4( -0.5,  0.5,  0.5, 1.0 ),
+        vec4( 0.5,  0.5,  0.5, 1.0 ),
+        vec4( 0.5, -0.5,  0.5, 1.0 ),
+        vec4( -0.5, -0.5, -0.5, 1.0 ),
+        vec4( -0.5,  0.5, -0.5, 1.0 ),
+        vec4( 0.5,  0.5, -0.5, 1.0 ),
+        vec4( 0.5, -0.5, -0.5, 1.0 ),
     ];
 
 // Used for holding data after we form quads from our vertices.
@@ -50,6 +50,21 @@ var specColor;
 // Matrices for MV-P transformations.
 var MVMatrix;
 var PMatrix;
+
+var near = 0.1;
+var far = 3.0;
+var radius = 4.0;
+var theta  = 0.0;
+var phi    = 0.0;
+var dr = 5.0 * Math.PI/180.0;
+
+var  fovy = 45.0;  // Field-of-view in Y direction angle (in degrees)
+var  aspect = 1.0;       // Viewport aspect ratio
+
+var modelViewMatrixLoc, projectionMatrixLoc;
+var eye;
+const at = vec3(0.0, 0.0, 0.0);
+const up = vec3(0.0, 1.0, 0.0);
 
 // Position of our viewer (camera).
 var viewerPos;
@@ -107,9 +122,8 @@ window.onload = function init()
     gl.vertexAttribPointer(vPosition, 4, gl.FLOAT, false, 0, 0);
     gl.enableVertexAttribArray(vPosition);
     
-    viewerPos = vec3(0.0, 0.0, -20.0);
-    PMatrix = ortho(-1, 1, -1, 1, -100, 100);
-    gl.uniformMatrix4fv(gl.getUniformLocation(program, "PMatrix"), false, flatten(PMatrix));
+	modelViewMatrixLoc = gl.getUniformLocation( program, "MVMatrix" );
+    projectionMatrixLoc = gl.getUniformLocation( program, "PMatrix" );
     
     ambiProd = mult(lightAmbi, matAmbi);
     diffProd = mult(lightDiff, matDiff);
@@ -141,7 +155,7 @@ function loop()
     MVMatrix = mult(MVMatrix, rotate(theta[1], [0, 1, 0]));
     MVMatrix = mult(MVMatrix, rotate(theta[2], [0, 0, 1]));
 
-    gl.uniformMatrix4fv(gl.getUniformLocation(program, "MVMatrix"), false, flatten(MVMatrix));
+    //gl.uniformMatrix4fv(gl.getUniformLocation(program, "MVMatrix"), false, flatten(MVMatrix));
     gl.uniform1i(gl.getUniformLocation(program, "index"), 0);
 
     render();
@@ -154,6 +168,14 @@ function loop()
 function render()
 {
     gl.clear(gl.COLOR_BUFFER_BIT);
+	
+	eye = vec3(radius*Math.sin(theta)*Math.cos(phi), radius*Math.sin(theta)*Math.sin(phi), radius*Math.cos(theta));
+    modelViewMatrix = lookAt(eye, at , up);
+    projectionMatrix = perspective(fovy, aspect, near, far);
+
+    gl.uniformMatrix4fv( modelViewMatrixLoc, false, flatten(modelViewMatrix) );
+    gl.uniformMatrix4fv( projectionMatrixLoc, false, flatten(projectionMatrix) );
+	
     gl.drawArrays(gl.TRIANGLES, 0, numVertices);
 }
 
